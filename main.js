@@ -1,12 +1,12 @@
 "use strict";
 
-import * as child_process from "child_process";
-import * as events from "events";
-import * as fs from "fs";
-import * as fsPromises from "fs/promises";
-import * as os from "os";
-import * as path from "path";
-import * as process from "process";
+import child_process from "child_process";
+import events from "events";
+import fs from "fs";
+import fsPromises from "fs/promises";
+import os from "os";
+import path from "path";
+import process from "process";
 
 const NAL_START_FIRST = Buffer.from("00000001", "hex");
 const NAL_START_SECOND = Buffer.from("000001", "hex");
@@ -31,6 +31,7 @@ function NALUnit(data) {
 NALUnit.prototype.reload = function (data) {
     this.header = data[0];
     this.data = data.subarray(1);
+
     this.forbiddenZeroBit = this.header >> 7;
     this.nalRefIdc = this.header >> 5 & 0x3;
     this.nalUnitType = this.header & 0x1F;
@@ -40,14 +41,15 @@ NALUnit.prototype.dump = function () {
     return Buffer.concat([this.start, Buffer.from([this.header]), this.data]);
 }
 
-async function runFFmpeg(inFileNames, outFileName, extraFlags) {
+async function runFFmpeg(inFileNames, outFileName, extraInFlags, extraOutFlags) {
     const args =
         Array
-        .from(inFileNames, e => [ "-i", e ])
-        .concat("-c copy".split(' '))
-        .concat(extraFlags)
-        .concat([outFileName])
-        .flat();
+            .from(inFileNames, e => [ "-i", e ])
+            .concat(extraInFlags)
+            .concat("-c copy".split(' '))
+            .concat(extraOutFlags)
+            .concat(outFileName)
+            .flat();
     const ffmpegProcess = child_process.spawn("ffmpeg", args, { stdio: "inherit" });
 
     ffmpegProcess.on("error", function () {
@@ -93,14 +95,15 @@ async function main() {
     const rawH264FileName = path.join(tmpdir, "raw.264");
     const rawAACFileName = path.join(tmpdir, "raw.aac");
 
-    await runFFmpeg([inFileName], rawH264FileName, "-map 0 -an".split(' '));
-    await runFFmpeg([inFileName], rawAACFileName, "-map 0 -vn".split(' '));
+    await Promise.all([
+        runFFmpeg([inFileName], rawH264FileName, [], "-map 0 -an".split(' ')),
+        runFFmpeg([inFileName], rawAACFileName, [], "-map 0 -vn".split(' '))
+    ]);
     const rawH264Buffer = await fsPromises.readFile(rawH264FileName);
     const naluPos = getNaluPos(rawH264Buffer);
     const nalus = naluPos.map(([from, to]) => new NALUnit(rawH264Buffer.subarray(from, to)));
 
-    const CNTVModule = await import("./cctv.worker.new.js");
-    const CNTVH5PlayerModule = CNTVModule.default();
+    const CNTVH5PlayerModule = (await import("./cctv.worker.new.js")).default();
 
     CNTVH5PlayerModule.onRuntimeInitialized = async function () {
         const curDate = Date.now().toString();
@@ -145,7 +148,6 @@ async function main() {
         function UnInitPlayer() { return _common("UnInitPlayer"); }
         function UpdatePlayer() { return _common("UpdatePlayer"); }
 
-        let signalUrlSend = false;
         function decrypt(buf) {
             const pageHost = "https://tv.cctv.com";
             const addr = CNTVH5PlayerModule._jsmalloc(buf.length + MemoryExtend);
@@ -275,6 +277,7 @@ async function main() {
         await runFFmpeg(
             [ decryptedRawH264FileName, rawAACFileName ],
             outFileName,
+            [],
             "-map 0 -map 1".split(' ')
         );
         await fsPromises.rm(tmpdir, { force: true, recursive: true });
