@@ -46,6 +46,7 @@ async function runFFmpeg(inFileNames, outFileName, extraInFlags, extraOutFlags) 
         Array
             .from(inFileNames, e => [ "-i", e ])
             .concat(extraInFlags)
+            .concat(["-y"])
             .concat("-c copy".split(' '))
             .concat(extraOutFlags)
             .concat(outFileName)
@@ -244,14 +245,21 @@ async function main() {
         for (const nalu of nalus) {
             UpdatePlayer();
 
+            let newBuffer = Buffer.concat([Buffer.from([nalu.header]), nalu.data]);
             if (nalu.nalUnitType === 25) {
                 shouldDecrypt = nalu.data[0] === 1;
 
-                const newBuffer = decrypt(Buffer.concat([Buffer.from([nalu.header]), nalu.data]));
+                newBuffer = decrypt(newBuffer);
                 nalu.reload(newBuffer);
             } else if ((nalu.nalUnitType === 1 || nalu.nalUnitType === 5) && shouldDecrypt) {
-                const newBuffer = decrypt(Buffer.concat([Buffer.from([nalu.header]), nalu.data]));
+                newBuffer = decrypt(newBuffer);
                 nalu.reload(newBuffer);
+            }
+
+            if (!newBuffer.subarray(-3).compare(Buffer.from([0x20, 0x00, 0x80]))) {
+                const b = Buffer.concat([newBuffer.subarray(0, -3), Buffer.from([0x20]), Buffer.from("By cctv-h5e-decrypt @ xiaoxi-ij478"), Buffer.from([0x00, 0x80])]);
+                b[2] = b.length - 3;
+                nalu.reload(b);
             }
         }
 
