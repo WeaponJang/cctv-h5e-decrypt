@@ -256,10 +256,17 @@ async function main() {
                 nalu.reload(newBuffer);
             }
 
-            if (!newBuffer.subarray(-3).compare(Buffer.from([0x20, 0x00, 0x80]))) {
-                const b = Buffer.concat([newBuffer.subarray(0, -3), Buffer.from([0x20]), Buffer.from("By cctv-h5e-decrypt @ xiaoxi-ij478"), Buffer.from([0x00, 0x80])]);
-                b[2] = b.length - 3;
-                nalu.reload(b);
+            if (nalu.nalUnitType === 6 && nalu.data[0] === 5) {
+                const watermark = "by cctv-h5e-decrypt @ xiaoxi-ij478";
+                nalu.data[1] = nalu.data.length + watermark.length - 3;
+                nalu.data = nalu.data.subarray(0, -1);
+                while (nalu.data[nalu.data.length - 1] === 0)
+                    nalu.data = nalu.data.subarray(0, -1);
+                nalu.data = Buffer.concat([
+                    nalu.data,
+                    Buffer.from(watermark),
+                    Buffer.from([0x80])
+                ]);
             }
         }
 
