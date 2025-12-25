@@ -271,8 +271,8 @@ async function mainDecrypter(CNTVH5PlayerModule) {
             if (nalu.nalUnitType === 6 && nalu.data[0] === 5) {
                 const watermark = `by cctv-h5e-decrypt @ xiaoxi-ij478 on ${new Date().getTime()}`;
                 nalu.data[1] = nalu.data.length + watermark.length - 3;
-                nalu.data = nalu.data.subarray(0, -1);
-                while (nalu.data.at(-1) === 0)
+                nalu.data = nalu.data.subarray(0, -1); // remove the trailing 0x80
+                while (nalu.data.at(-1) === 0x00)
                     nalu.data = nalu.data.subarray(0, -1);
                 nalu.data = Buffer.concat([
                     nalu.data,
