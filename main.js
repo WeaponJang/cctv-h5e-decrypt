@@ -91,7 +91,7 @@ function getNaluPos(buf) {
 }
 
 async function mainDecrypter(CNTVH5PlayerModule) {
-    const curDate = Date.now().toString();
+    let curDate = Date.now().toString();
     const MemoryExtend = 2048;
     let vmpTag = '';
 
@@ -253,6 +253,7 @@ async function mainDecrypter(CNTVH5PlayerModule) {
         const outFile = fs.createWriteStream(decryptedRawH264FileName);
 
         let shouldDecrypt = false;
+        curDate = Date.now().toString();
         InitPlayer();
         for (const nalu of nalus) {
             UpdatePlayer();
@@ -266,19 +267,6 @@ async function mainDecrypter(CNTVH5PlayerModule) {
             } else if ((nalu.nalUnitType === 1 || nalu.nalUnitType === 5) && shouldDecrypt) {
                 newBuffer = decrypt(newBuffer);
                 nalu.reload(newBuffer);
-            }
-
-            if (nalu.nalUnitType === 6 && nalu.data[0] === 5) {
-                const watermark = `decrypted on ${new Date().getTime()}`;
-                nalu.data[1] = nalu.data.length + watermark.length - 3;
-                nalu.data = nalu.data.subarray(0, -1); // remove the trailing 0x80
-                while (nalu.data.at(-1) === 0x00)
-                    nalu.data = nalu.data.subarray(0, -1);
-                nalu.data = Buffer.concat([
-                    nalu.data,
-                    Buffer.from(watermark),
-                    Buffer.from([0x80])
-                ]);
             }
         }
         UnInitPlayer();
@@ -307,22 +295,25 @@ async function mainDecrypter(CNTVH5PlayerModule) {
 
     // remux into container
     console.log("remuxing...");
-    let ffmpegMutexTasks = [];
-    for (let inFileNameIndex = 2; inFileNameIndex < process.argv.length - 1; inFileNameIndex++)
-        ffmpegMutexTasks.push(
-            fsPromises.writeFile(
-                concatVideoListFileName,
-                `file ${path.join('.', `out${inFileNameIndex}.264`)}\n`,
-                { flag: "a" }
-            ),
-            fsPromises.writeFile(
-                concatAudioListFileName,
-                `file ${path.join('.', `raw${inFileNameIndex}.aac`)}\n`,
-                { flag: "a" }
-            )
-        );
+    const concatVideoListFileList = [], concatAudioListFileList = [];
 
-    await Promise.all(ffmpegMutexTasks);
+    for (let inFileNameIndex = 2; inFileNameIndex < process.argv.length - 1; inFileNameIndex++)
+        concatVideoListFileList.push(`file ${path.join('.', `out${inFileNameIndex}.264`)}`);
+
+    await fsPromises.writeFile(
+        concatVideoListFileName,
+        concatVideoListFileList.join('\n'),
+        { flag: 'a' }
+    );
+    for (let inFileNameIndex = 2; inFileNameIndex < process.argv.length - 1; inFileNameIndex++)
+        concatAudioListFileList.push(`file ${path.join('.', `raw${inFileNameIndex}.aac`)}`);
+
+    await fsPromises.writeFile(
+        concatAudioListFileName,
+        concatAudioListFileList.join('\n'),
+        { flag: 'a' }
+    );
+
     await runFFmpeg(
         [ concatVideoListFileName, concatAudioListFileName ],
         process.argv.at(-1),
