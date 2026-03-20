@@ -1,0 +1,26 @@
+{
+  "name": "cctv-video-downloader",
+  "version": "1.0.0",
+  "description": "CCTV视频下载器 - 基于NW.js的桌面应用",
+  "main": "index.html",
+  "window": {
+    "title": "CCTV 视频下载器",
+    "icon": "app.ico",
+    "width": 1280,
+    "height": 800,
+    "min_width": 800,
+    "min_height": 800,
+    "resizable": true,
+    "position": "center",
+    "frame": true,
+    "show_in_taskbar": true
+  },
+  "keywords": [
+    "cctv",
+    "video",
+    "downloader",
+    "nwjs"
+  ],
+  "author": "zwb83925462",
+  "license": "MIT"
+}

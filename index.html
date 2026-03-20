@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CCTV-视频下载器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', 'Segoe UI', Tahoma, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            box-shadow: 0 10px 10px rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            width: 100%;
+            max-width: 100vw;
+        }
+
+        h1 {
+            text-align: center;
+            color: #1a1a2e;
+            margin-bottom: 10px;
+            font-size: 28px;
+            font-weight: 600;
+        }
+
+        h1::before {
+            content: '📺 ';
+        }
+
+        .input-group {
+            margin-bottom: 10px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 10px;
+            color: #333;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .input-wrapper {
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-group input {
+            flex: 1;
+            padding: 10px 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        .input-group input:focus {
+            border-color: #0f3460;
+            box-shadow: 0 0 0 5px rgba(15, 52, 96, 0.1);
+        }
+
+        .input-group input::placeholder {
+            color: #aaa;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px 12px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        #convertBtn {
+            background: linear-gradient(135deg, #0f3460 0%, #1a1a2e 100%);
+            color: white;
+        }
+
+        #convertBtn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 10px rgba(15, 52, 96, 0.4);
+        }
+
+        #convertBtn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        #stopBtn {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+        }
+
+        #stopBtn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 10px rgba(231, 76, 60, 0.4);
+        }
+
+        #stopBtn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            padding: 12px 16px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #95a5a6;
+            transition: background 0.3s ease;
+        }
+
+        .status-indicator.running {
+            background: #27ae60;
+            animation: pulse 1.5s infinite;
+        }
+
+        .status-indicator.error {
+            background: #e74c3c;
+        }
+
+        .status-indicator.success {
+            background: #3498db;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .log-container {
+            background: #1a1a2e;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .log-container h3 {
+            background: #0f3460;
+            color: white;
+            padding: 12px 16px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        #logOutput {
+			max-height: 400px;
+            height: 250px;
+            overflow-y: auto;
+            padding: 0px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 16px;
+            line-height: 1.6;
+            color: #ecf0f1;
+        }
+
+        #logOutput .log-line {
+            margin-bottom: 4px;
+            word-wrap: break-word;
+        }
+
+        #logOutput .log-info { color: #3498db; }
+        #logOutput .log-success { color: #2ecc71; }
+        #logOutput .log-error { color: #e74c3c; }
+        #logOutput .log-warn { color: #f39c12; }
+
+        .progress-container {
+            margin-bottom: 10px;
+            display: none;
+        }
+
+        .progress-container.active {
+            display: block;
+        }
+
+        .progress-bar {
+            height: 4px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #0f3460, #3498db);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 4px;
+        }
+
+        .progress-text {
+            text-align: center;
+            margin-top: 4px;
+            font-size: 16px;
+            color: #666;
+        }
+
+        /* 滚动条样式 */
+        #logOutput::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        #logOutput::-webkit-scrollbar-track {
+            background: #16213e;
+        }
+
+        #logOutput::-webkit-scrollbar-thumb {
+            background: #0f3460;
+            border-radius: 4px;
+        }
+
+        #logOutput::-webkit-scrollbar-thumb:hover {
+            background: #1a5276;
+        }
+
+        .help-text {
+            margin-top: 10px;
+            padding: 5px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            font-size: 16px;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .help-text h4 {
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .help-text code {
+            background: #e9ecef;
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-family: 'Consolas', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>CCTV 视频下载器</h1>
+        
+        <div class="input-group">
+            <label for="inputGuid">请输入视频 GUID:</label>
+            <div class="input-wrapper">
+                <input type="text" id="inputGuid" placeholder="例如: 8528b2de72904f15a740383d3c1e9917" autofocus>
+            </div>
+        </div>
+
+        <div class="btn-group">
+            <button id="convertBtn">🚀 开始下载</button>
+            <button id="stopBtn" disabled>⏹ 停止</button>
+        </div>
+
+        <div class="status-bar">
+            <div class="status-indicator" id="statusIndicator"></div>
+            <span id="statusText">等待输入...</span>
+        </div>
+
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-text" id="progressText">准备中...</div>
+        </div>
+
+        <div class="log-container">
+            <h3>📋 操作日志</h3>
+            <div id="logOutput"></div>
+        </div>
+
+        <div class="help-text">
+            <h4>💡 使用说明</h4>
+            <p>1. 打开 CCTV 视频页面，从js对象中获取 GUID（如: <code><strong>8528b2de72904f15a740383d3c1e9917</strong></code>）</p>
+            <p>2. 将 GUID 粘贴到输入框中，点击"开始下载"</p>
+            <p>3. 等待下载和解密完成，视频将保存在 <code>video/</code> 目录下</p>
+        </div>
+    </div>
+
+    <script src="index.js"></script>
+</body>
+</html>
